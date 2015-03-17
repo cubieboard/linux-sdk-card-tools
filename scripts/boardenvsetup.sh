@@ -24,7 +24,6 @@ cb_build_clean()
 
 partition_Mechanism()
 {
-	pack_install="install"
 	if [ $# -eq 2 ]; then
 		if [ $2 = "pack" ];then
 			pack_install="pack"
@@ -63,19 +62,23 @@ cb_build_card_image()
 
     sudo rm -rf ${CB_OUTPUT_DIR}/card0-part1 ${CB_OUTPUT_DIR}/card0-part2
     mkdir -pv ${CB_OUTPUT_DIR}/card0-part1 ${CB_OUTPUT_DIR}/card0-part2
+	echo $CB_SYSTEM_NAME |grep -q "fedora"
+	if [ $? -eq 0  ];then
 
-   # sudo tar -C ${CB_OUTPUT_DIR}/card0-part2 --strip-components=1 -zxpf ${CB_PRODUCT_ROOTFS_IMAGE}
-   # sudo tar -C ${CB_OUTPUT_DIR}/card0-part2 -zxpf ${CB_PRODUCT_ROOTFS_IMAGE}
-    sudo make -C ${CB_KSRC_DIR} O=${CB_KBUILD_DIR} ARCH=arm CROSS_COMPILE=${CB_CROSS_COMPILE} -j4 INSTALL_MOD_PATH=${CB_OUTPUT_DIR}/card0-part2 modules_install
+			sudo make -C ${CB_KSRC_DIR} O=${CB_KBUILD_DIR} ARCH=arm CROSS_COMPILE=${CB_CROSS_COMPILE} -j4 INSTALL_MOD_PATH=${CB_OUTPUT_DIR}/card0-part2/usr modules_install
+			echo "this is fedora"
+	else
+		sudo make -C ${CB_KSRC_DIR} O=${CB_KBUILD_DIR} ARCH=arm CROSS_COMPILE=${CB_CROSS_COMPILE} -j4 INSTALL_MOD_PATH=${CB_OUTPUT_DIR}/card0-part2 modules_install
+	fi
+
     (cd ${CB_PRODUCT_DIR}/overlay; tar -c *) |sudo tar -C ${CB_OUTPUT_DIR}/card0-part2  -x --no-same-owner
     (cd ${CB_OUTPUT_DIR}/card0-part2; sudo tar -c * )|gzip -9 > ${CB_OUTPUT_DIR}/rootfs-part2.tar.gz
 	cat  ${CB_TOOLS_DIR}/scripts/readme.txt
 }
 
-cb_install_tfcard()
+cb_part_install_tfcard()
 {
-	
-
+	echo  "pack_install=$pack_install"
 	if [ $# -eq 2 ]; then
 		if	partition_Mechanism $2
 			then
@@ -99,9 +102,25 @@ cb_install_tfcard()
 		echo "pack: the parameter mean we will make a img for dd or win32writer"
 		return 1
 	fi
-	echo  "pack_install=$pack_install "
+	cat  ${CB_TOOLS_DIR}/scripts/readme.txt
+}
+
+cb_install_tfcard()
+{
 	local	STORAGE_MEDIUM=$1
 	local   sd_dev=$2
+
+	if [ $# -eq 3 ]; then
+		if [ $3 = "pack" ];then
+			pack_install="pack"
+		else
+			echo "parameter 2 only support pack options now"
+			return 1
+		fi
+	else
+		pack_install="install"
+	fi
+
 	if [  $STORAGE_MEDIUM = "tfx2" ]; then
 		U_BOOT_BIN=${U_BOOT_WITH_SPL_MMC2}
 		else
@@ -113,7 +132,7 @@ cb_install_tfcard()
 	else
 		CONFIG_DIR=${CB_BOARD_DIR}/common_default/configs/${STORAGE_MEDIUM}
 	fi
-    #part1
+       #part1
 	if [ -d /tmp/sdc1 ]; then
 		sudo rm -rf /tmp/sdc1
 	fi
@@ -127,8 +146,7 @@ cb_install_tfcard()
     sync
     sudo umount /tmp/sdc1
     rm -rf /tmp/sdc1
-
-	#dd u-boot
+    #dd u-boot
     if cb_sd_make_boot2 $sd_dev $U_BOOT_BIN
     then
 	echo "Build successfully"
@@ -144,20 +162,44 @@ cb_install_tfcard()
 
     mkdir /tmp/sdc2
     sudo mount /dev/${sd_dev}2 /tmp/sdc2
-    #sudo tar -C /tmp/sdc2 -zxpf ${CB_PRODUCT_ROOTFS_IMAGE}
     sudo tar -C /tmp/sdc2 --strip-components=1 -zxpf ${CB_PRODUCT_ROOTFS_IMAGE}
     sudo tar -C /tmp/sdc2 -xpf ${CB_OUTPUT_DIR}/rootfs-part2.tar.gz
+    sudo rm -rf /tmp/sdc2/lib/firmware /tmp/sdc2/lib/modules 
 	if [ $pack_install =  "pack" ]; then
-		sudo cp -v ${CONFIG_DIR}/firstrun /tmp/sdc2/etc/init.d/firstrun
-		sudo chmod +x /tmp/sdc2/etc/init.d/firstrun
+		if [ -e ${CONFIG_DIR}/firstrun ]; then
+			sudo cp -v ${CONFIG_DIR}/firstrun /tmp/sdc2/etc/init.d/firstrun
+			sudo chmod +x /tmp/sdc2/etc/init.d/firstrun
+		fi
+	fi
+
+	echo $CB_SYSTEM_NAME |grep -q "test"
+
+        if [ $? -eq 0  ];then
+	        if [ "${STORAGE_MEDIUM}" = "nand" ];then
+			sudo cp -v ${CB_PRODUCT_DIR}/cb2-test.sh  /tmp/sdc2/tools/ 
+		fi
+
 	fi
     sync
     sudo umount /tmp/sdc2
     rm -rf /tmp/sdc2
 
-	#dd card.img for pack mode
 	if [ $pack_install =  "pack" ]; then
-		ddSize=$(expr $PartSize + 25)
+		sizeByte=$(sudo du -sb ${CB_OUTPUT_DIR}/rootfs-part2.tar.gz | awk '{print $1}')
+		if [ "${STORAGE_MEDIUM}" = "tsd" ]; then
+			CONFIG_DIR=${CB_PRODUCT_DIR}/configs/tsd
+			RootfsSizeKB=$(expr $sizeByte / 1000 + $CB_ROOTFS_SIZE \* 1024 +  50 \* 1024)
+		elif [ "${STORAGE_MEDIUM}" = "nand" ]; then
+			RootfsSizeKB=$(expr $sizeByte / 1000 + $CB_ROOTFS_SIZE \* 1024 +  100 \* 1024)
+			CONFIG_DIR=${CB_PRODUCT_DIR}/configs/nand
+		else
+			echo "first option only support tsd nand now"
+			return 1
+		fi
+		PartExt4=$(expr $RootfsSizeKB + $RootfsSizeKB / 15)
+		PartSize=$(expr $PartExt4 \* 2)
+		PartSizeMB=$(expr $PartSize / 1000)
+		ddSize=$(expr $PartSizeMB + 25)
 		echo "ddsize=$ddSize !"
 		sudo dd if=/dev/${sd_dev} of=${CB_OUTPUT_DIR}/${CB_SYSTEM_NAME}-${STORAGE_MEDIUM}-tfcard.img bs=1M count=$ddSize
 		sync
@@ -172,35 +214,34 @@ cb_build_flash_card_image()
 
     sudo rm -rf ${CB_OUTPUT_DIR}/card0-rootfs
     mkdir -pv ${CB_OUTPUT_DIR}/card0-rootfs
-    rm -rf /tmp/tmp_${CB_PRODUCT_NAME}
-	rm -rf /tmp/tmp_${CB_BOARD_NAME}
+    sudo rm -rf /tmp/tmp_${CB_PRODUCT_NAME}
+    sudo rm -rf /tmp/tmp_${CB_BOARD_NAME}
     mkdir -p /tmp/tmp_${CB_PRODUCT_NAME}
-	cp	${CB_PRODUCT_ROOTFS_EXT4}	${CB_OUTPUT_ROOTFS_EXT4}
-	sync
+    dd if=/dev/zero of=${CB_OUTPUT_ROOTFS_EXT4} bs=1M count=${CB_ROOTFS_SIZE}
+    sync
+    sudo echo y | mkfs.ext4 ${CB_OUTPUT_ROOTFS_EXT4}
     sudo mount -o loop ${CB_OUTPUT_ROOTFS_EXT4} /tmp/tmp_${CB_PRODUCT_NAME}
+    sudo tar -C /tmp/tmp_${CB_PRODUCT_NAME} --strip-components=1 -zxpf ${CB_PRODUCT_ROOTFS_IMAGE}
     (cd /tmp/tmp_${CB_PRODUCT_NAME}; sudo tar -cp *) |sudo tar -C ${CB_OUTPUT_DIR}/card0-rootfs -xp
-    sudo make -C ${CB_KSRC_DIR} O=${CB_KBUILD_DIR} ARCH=arm CROSS_COMPILE=${CB_CROSS_COMPILE} -j4 INSTALL_MOD_PATH=${CB_OUTPUT_DIR}/card0-rootfs modules_install
-    (cd ${CB_PRODUCT_DIR}/overlay; tar -c *) |sudo tar -C ${CB_OUTPUT_DIR}/card0-rootfs  -x --no-same-owner
-    (cd ${CB_OUTPUT_DIR}/card0-rootfs;  sudo tar -cp *) |gzip -9 > ${CB_OUTPUT_DIR}/rootfs.tar.gz
+	echo $CB_SYSTEM_NAME |grep -q "fedora"
+	if [ $? -eq 0  ];then
+			sudo make -C ${CB_KSRC_DIR} O=${CB_KBUILD_DIR} ARCH=arm CROSS_COMPILE=${CB_CROSS_COMPILE} -j4 INSTALL_MOD_PATH=${CB_OUTPUT_DIR}/card0-rootfs/usr modules_install
+			echo "this is fedora"
+	else
+		sudo make -C ${CB_KSRC_DIR} O=${CB_KBUILD_DIR} ARCH=arm CROSS_COMPILE=${CB_CROSS_COMPILE} -j4 INSTALL_MOD_PATH=${CB_OUTPUT_DIR}/card0-rootfs modules_install
+	fi
+    (cd ${CB_PRODUCT_DIR}/overlay; tar -cp *) |sudo tar -C ${CB_OUTPUT_DIR}/card0-rootfs  -x --no-same-owner
+    (cd ${CB_OUTPUT_DIR}/card0-rootfs; sudo tar -cp  --exclude lib/firmware --exclude lib/modules *) |gzip -9 > ${CB_OUTPUT_DIR}/rootfs.tar.gz
     sudo chmod 666 ${CB_OUTPUT_DIR}/rootfs.tar.gz
     sudo umount /tmp/tmp_${CB_PRODUCT_NAME}
-	cat  ${CB_TOOLS_DIR}/scripts/readme.txt
+    cat  ${CB_TOOLS_DIR}/scripts/readme.txt
 }
 
-cb_install_flash_card()
+
+cb_part_install_flash_card()
 {
 	local STORAGE_MEDIUM=$1
 	local sd_dev=$2
-	local pack_install="install"
-	if [ $# -eq 3 ]; then
-		if [ $3 = "pack" ]; then
-			pack_install="pack"
-		else
-			echo -e "\e[0;31;1m   only support pack option now! \e[0m"
-			return 1
-		fi
-	fi
-
 
 	sizeByte=$(sudo du -sb ${CB_OUTPUT_DIR}/rootfs.tar.gz | awk '{print $1}')
 	if [ "${STORAGE_MEDIUM}" = "tsd" ]; then
@@ -224,19 +265,40 @@ cb_install_flash_card()
     echo "Make sunxi partitions failed"
     return 1
     fi
+    cat  ${CB_TOOLS_DIR}/scripts/readme.txt
+}
+
+cb_install_flash_card()
+{
+
+	local STORAGE_MEDIUM=$1
+	local sd_dev=$2
+	local pack_install="install"
+	if [ $# -eq 3 ]; then
+		if [ $3 = "pack" ]; then
+			pack_install="pack"
+		else
+			echo -e "\e[0;31;1m   only support pack option now! \e[0m"
+			return 1
+		fi
+	fi
+	if [ "${STORAGE_MEDIUM}" = "tsd" ]; then
+		CONFIG_DIR=${CB_PRODUCT_DIR}/configs/tsd
+	else
+		CONFIG_DIR=${CB_PRODUCT_DIR}/configs/nand
+	fi
 
     mkdir /tmp/sdc1
     sudo mount /dev/${sd_dev}1 /tmp/sdc1
     cp -v ${CB_PACKAGES_DIR}/card_flash_nand_rootfs.tar.gz ${CB_OUTPUT_DIR}/
     cp -v ${CB_PACKAGES_DIR}/card_flash_rootfs.tar.gz ${CB_OUTPUT_DIR}/
     sudo sync
-	sudo cp -v ${CB_KBUILD_DIR}/arch/arm/boot/uImage /tmp/sdc1/
-	sudo cp -v ${CONFIG_DIR}/uEnv-mmc.txt	/tmp/sdc1/uEnv.txt
+    sudo cp -v ${CB_KBUILD_DIR}/arch/arm/boot/uImage /tmp/sdc1/
+    sudo cp -v ${CONFIG_DIR}/uEnv-mmc.txt	/tmp/sdc1/uEnv.txt
     sudo fex2bin ${CONFIG_DIR}/install_sys_config.fex  /tmp/sdc1/script.bin
     sync
     sudo umount /tmp/sdc1
     rm -rf /tmp/sdc1
-
     if cb_sd_make_boot2 ${sd_dev} $U_BOOT_WITH_SPL
     then
     echo "Build successfully"
@@ -244,7 +306,6 @@ cb_install_flash_card()
     echo "Build failed"
     return 2
     fi
-
     mkdir /tmp/sdc2
     sudo mount /dev/${sd_dev}2 /tmp/sdc2
     echo "mount ok"
@@ -276,6 +337,19 @@ cb_install_flash_card()
     rm -rf /tmp/sdc2
 
 	if [ $pack_install =  "pack" ]; then
+		sizeByte=$(sudo du -sb ${CB_OUTPUT_DIR}/rootfs.tar.gz | awk '{print $1}')
+		if [ "${STORAGE_MEDIUM}" = "tsd" ]; then
+			CONFIG_DIR=${CB_PRODUCT_DIR}/configs/tsd
+			RootfsSizeKB=$(expr $sizeByte / 1000 + $CB_FLASH_TSD_ROOTFS_SIZE \* 1024 +  50 \* 1024)
+		elif [ "${STORAGE_MEDIUM}" = "nand" ]; then
+			RootfsSizeKB=$(expr $sizeByte / 1000 + $CB_FLASH_TSD_ROOTFS_SIZE \* 1024 +  100 \* 1024)
+			CONFIG_DIR=${CB_PRODUCT_DIR}/configs/nand
+		else
+			echo "first option only support tsd nand now"
+			return 1
+		fi
+		PartExt4=$(expr $RootfsSizeKB + $RootfsSizeKB / 15)
+		PartSize=$(expr $PartExt4 \* 2)
 		PartSizeMB=$(expr $PartSize / 1000)
 		ddSize=$(expr $PartSizeMB + 25)
 		echo "ddsize=$ddSize !"
@@ -312,7 +386,7 @@ cb_build_release()
         git archive --prefix kernel-source/ HEAD |gzip > ${CB_RELEASE_DIR}/${STORAGE_MEDIUM}_${VERSION}/kernel-source.tar.gz
         )
         md5sum ${CB_RELEASE_DIR}/${STORAGE_MEDIUM}_${VERSION}/kernel-source.tar.gz > ${CB_RELEASE_DIR}/${STORAGE_MEDIUM}_${VERSION}/kernel-source.tar.gz.md5
-		mkdir -pv  ${CB_RELEASE_DIR}/${STORAGE_MEDIUM}_${VERSION}/config 
+	mkdir -pv  ${CB_RELEASE_DIR}/${STORAGE_MEDIUM}_${VERSION}/config 
         cp -rv ${CB_PRODUCT_DIR}/configs/${STORAGE_MEDIUM}/* ${CB_RELEASE_DIR}/${STORAGE_MEDIUM}_${VERSION}/config
         date +%Y%m%d > ${CB_RELEASE_DIR}/${STORAGE_MEDIUM}_${VERSION}/build.log
 

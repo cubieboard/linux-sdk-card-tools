@@ -1,18 +1,36 @@
-Build sdcard image:
-	1. tf card boot
-	(1)cb_build_card_image (compile code to prepare cb_install_tfcard)
-	(2)cb_install_tfcard  storage_medium dev_label [pack]
-		storage_medium: nand tsd tfx2
-		dev_label:      sdb sdc sdd ...
-		pack:           the parameter mean we will make a img for dd or win32writer
-		cmd for example: cb_install_tfcard tsd sdb
+--------------------------------------------------------------
 
-	2. tsd or nand card boot
-	(1)cb_build_flash_card_image(compile code to prepare cb_install_flash_card)
-	(2)cb_install_flash_card storage_medium dev_label [pack]
-		(install TF card to flash img to tsd/emmc sdx is your sdcard label pc)
-		storage_medium: nand tsd (tfx2 don`t need this mode)
-		dev_label:      sdb sdc sdd ...
-		pack:           the parameter mean we will make a img for dd or win32writer
-		cmd for example: cb_install_flash_card tsd sdb
 
+        * Building Micro-sd Card Image Step: 
+
+        0.Insert Micro-sd Card into host PC 
+        !!!!! WARNNING !!!!!
+        The below steps will format your Micro-sd Card 
+	Please make sure your Micro-sd Card label 
+        $ sudo fdisk -l 
+        $ sudo umount /dev/sdx 
+
+        1.Micro-sd Card Image packing:
+        (1)$ cb_build_card_image
+        (2)$ cb_part_install_tfcard nand/tfx2/tsd pack 
+        (3)$ cb_install_tfcard nand/tfx2/tsd sdx pack
+
+	2.Micro-sd Card flash TSD: 
+	(1)$ cb_build_flash_card_image 
+        (2)$ cb_part_install_flash_card tsd sdx 
+	(3)$ cb_install_flash_card tsd sdx pack
+
+
+        * Explanation of parameters
+        - nand: Nand flash storage version for cbs 
+        - tfx2: Cubieboard2-dualcard version 
+        - tsd:  Tsd flash storage version for cbs 
+        - sdx:  Micro-sd Card label on host PC 
+
+        
+        * Building example for nand version Micro-sd Card Image 
+        $ cb_build_card_image
+        $ cb_part_install_tfcard nand pack 
+        $ cb_install_tfcard nand sdc pack
+                
+-----------------------------------------------------------------
