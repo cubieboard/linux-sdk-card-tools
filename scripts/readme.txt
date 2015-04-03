@@ -31,7 +31,7 @@
  
         * Building example for nand version Micro-sd Card Image 
         $ cb_build_card_image
-        $ cb_part_install_tfcard nand pack 
+        $ cb_part_install_tfcard nand sdc pack 
         $ cb_install_tfcard nand sdc 
                 
 -----------------------------------------------------------------
