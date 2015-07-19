@@ -11,7 +11,7 @@ cb_build_linux()
     make -C ${CB_KSRC_DIR} O=${CB_KBUILD_DIR} ARCH=arm CROSS_COMPILE=${CB_CROSS_COMPILE} kernel_defconfig
     rm -rf ${CB_KSRC_DIR}/arch/arm/configs/kernel_defconfig
     cp -v ${CB_PRODUCT_DIR}/rootfs.cpio.gz ${CB_KBUILD_DIR}
-    make -C ${CB_KSRC_DIR} O=${CB_KBUILD_DIR} ARCH=arm CROSS_COMPILE=${CB_CROSS_COMPILE} -j4 INSTALL_MOD_PATH=${CB_TARGET_DIR} uImage modules
+    make -C ${CB_KSRC_DIR} O=${CB_KBUILD_DIR} ARCH=arm CROSS_COMPILE=${CB_CROSS_COMPILE} -j${CB_CPU_NUM} INSTALL_MOD_PATH=${CB_TARGET_DIR} uImage modules
     ${CB_CROSS_COMPILE}objcopy -R .note.gnu.build-id -S -O binary ${CB_KBUILD_DIR}/vmlinux ${CB_KBUILD_DIR}/bImage
     echo "Build linux successfully"
 }
@@ -68,10 +68,10 @@ cb_build_card_image()
 	echo $CB_SYSTEM_NAME |grep -q "fedora"
 	if [ $? -eq 0  ];then
 
-			sudo make -C ${CB_KSRC_DIR} O=${CB_KBUILD_DIR} ARCH=arm CROSS_COMPILE=${CB_CROSS_COMPILE} -j4 INSTALL_MOD_PATH=${CB_OUTPUT_DIR}/card0-part2/usr modules_install
+			sudo make -C ${CB_KSRC_DIR} O=${CB_KBUILD_DIR} ARCH=arm CROSS_COMPILE=${CB_CROSS_COMPILE} -j${CB_CPU_NUM} INSTALL_MOD_PATH=${CB_OUTPUT_DIR}/card0-part2/usr modules_install
 			echo "this is fedora"
 	else
-		sudo make -C ${CB_KSRC_DIR} O=${CB_KBUILD_DIR} ARCH=arm CROSS_COMPILE=${CB_CROSS_COMPILE} -j4 INSTALL_MOD_PATH=${CB_OUTPUT_DIR}/card0-part2 modules_install
+		sudo make -C ${CB_KSRC_DIR} O=${CB_KBUILD_DIR} ARCH=arm CROSS_COMPILE=${CB_CROSS_COMPILE} -j${CB_CPU_NUM} INSTALL_MOD_PATH=${CB_OUTPUT_DIR}/card0-part2 modules_install
 	fi
 
     (cd ${CB_PRODUCT_DIR}/overlay; tar -c *) |sudo tar -C ${CB_OUTPUT_DIR}/card0-part2  -x --no-same-owner
@@ -232,10 +232,10 @@ cb_build_flash_card_image()
     (cd /tmp/tmp_${CB_PRODUCT_NAME}; sudo tar -cp *) |sudo tar -C ${CB_OUTPUT_DIR}/card0-rootfs -xp
 	echo $CB_SYSTEM_NAME |grep -q "fedora"
 	if [ $? -eq 0  ];then
-			sudo make -C ${CB_KSRC_DIR} O=${CB_KBUILD_DIR} ARCH=arm CROSS_COMPILE=${CB_CROSS_COMPILE} -j4 INSTALL_MOD_PATH=${CB_OUTPUT_DIR}/card0-rootfs/usr modules_install
+			sudo make -C ${CB_KSRC_DIR} O=${CB_KBUILD_DIR} ARCH=arm CROSS_COMPILE=${CB_CROSS_COMPILE} -j${CB_CPU_NUM} INSTALL_MOD_PATH=${CB_OUTPUT_DIR}/card0-rootfs/usr modules_install
 			echo "this is fedora"
 	else
-		sudo make -C ${CB_KSRC_DIR} O=${CB_KBUILD_DIR} ARCH=arm CROSS_COMPILE=${CB_CROSS_COMPILE} -j4 INSTALL_MOD_PATH=${CB_OUTPUT_DIR}/card0-rootfs modules_install
+		sudo make -C ${CB_KSRC_DIR} O=${CB_KBUILD_DIR} ARCH=arm CROSS_COMPILE=${CB_CROSS_COMPILE} -j${CB_CPU_NUM} INSTALL_MOD_PATH=${CB_OUTPUT_DIR}/card0-rootfs modules_install
 	fi
     (cd ${CB_PRODUCT_DIR}/overlay; tar -c *) |sudo tar -C ${CB_OUTPUT_DIR}/card0-rootfs  -x --no-same-owner
     (cd ${CB_OUTPUT_DIR}/card0-rootfs;  sudo tar -cp *) |gzip -9 > ${CB_OUTPUT_DIR}/rootfs.tar.gz
