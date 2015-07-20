@@ -84,6 +84,7 @@ export CB_KBUILD_DIR=${CB_BUILD_DIR}/linux
 export CB_PACKBUILD_DIR=${CB_BUILD_DIR}/pack
 export CB_CROSS_COMPILE=arm-linux-gnueabihf-
 export CB_PACKAGES_DIR=${CB_SDK_ROOTDIR}/binaries
+export CB_CPU_NUM=`cat /proc/cpuinfo | grep processor | wc -l`
 
 echo "Creating working dirs"
 mkdir -p ${CB_OUTPUT_DIR} ${CB_BUILD_DIR} ${CB_KBUILD_DIR} ${CB_PACKBUILD_DIR} ${CB_TARGET_DIR}
