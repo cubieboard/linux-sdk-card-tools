@@ -22,6 +22,13 @@ done
 
 cb_sd_check()
 {
+    if [ $1 = "sdx" ];then
+	echo 
+	echo "please check which the card device you use,may be sdb or sdc,not sdx. "
+	echo 
+	return 1
+
+    fi
     local sd_dev=$1
     local full_path="/dev/$sd_dev"
     is_removable=0

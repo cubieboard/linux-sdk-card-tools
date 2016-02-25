@@ -11,7 +11,13 @@ cb_build_linux()
     make -C ${CB_KSRC_DIR} O=${CB_KBUILD_DIR} ARCH=arm CROSS_COMPILE=${CB_CROSS_COMPILE} kernel_defconfig
     rm -rf ${CB_KSRC_DIR}/arch/arm/configs/kernel_defconfig
     cp -v ${CB_PRODUCT_DIR}/rootfs.cpio.gz ${CB_KBUILD_DIR}
-    make -C ${CB_KSRC_DIR} O=${CB_KBUILD_DIR} ARCH=arm CROSS_COMPILE=${CB_CROSS_COMPILE} -j${CB_CPU_NUM} INSTALL_MOD_PATH=${CB_TARGET_DIR} uImage modules
+    if [ ${CB_BOARD_NAME} = "cubieaio" ];then
+	mkdir -p ${CB_KBUILD_DIR}/drivers/input/touchscreen/
+	cp -v  ${CB_PRODUCT_DIR}/gsl_point_id.o   ${CB_KBUILD_DIR}/drivers/input/touchscreen/
+  
+    fi
+
+    make -C ${CB_KSRC_DIR} O=${CB_KBUILD_DIR} ARCH=arm CROSS_COMPILE=${CB_CROSS_COMPILE} -j4 INSTALL_MOD_PATH=${CB_TARGET_DIR} uImage modules
     ${CB_CROSS_COMPILE}objcopy -R .note.gnu.build-id -S -O binary ${CB_KBUILD_DIR}/vmlinux ${CB_KBUILD_DIR}/bImage
     echo "Build linux successfully"
 }
@@ -68,10 +74,10 @@ cb_build_card_image()
 	echo $CB_SYSTEM_NAME |grep -q "fedora"
 	if [ $? -eq 0  ];then
 
-			sudo make -C ${CB_KSRC_DIR} O=${CB_KBUILD_DIR} ARCH=arm CROSS_COMPILE=${CB_CROSS_COMPILE} -j${CB_CPU_NUM} INSTALL_MOD_PATH=${CB_OUTPUT_DIR}/card0-part2/usr modules_install
+			sudo make -C ${CB_KSRC_DIR} O=${CB_KBUILD_DIR} ARCH=arm CROSS_COMPILE=${CB_CROSS_COMPILE} -j4 INSTALL_MOD_PATH=${CB_OUTPUT_DIR}/card0-part2/usr modules_install
 			echo "this is fedora"
 	else
-		sudo make -C ${CB_KSRC_DIR} O=${CB_KBUILD_DIR} ARCH=arm CROSS_COMPILE=${CB_CROSS_COMPILE} -j${CB_CPU_NUM} INSTALL_MOD_PATH=${CB_OUTPUT_DIR}/card0-part2 modules_install
+		sudo make -C ${CB_KSRC_DIR} O=${CB_KBUILD_DIR} ARCH=arm CROSS_COMPILE=${CB_CROSS_COMPILE} -j4 INSTALL_MOD_PATH=${CB_OUTPUT_DIR}/card0-part2 modules_install
 	fi
 
     (cd ${CB_PRODUCT_DIR}/overlay; tar -c *) |sudo tar -C ${CB_OUTPUT_DIR}/card0-part2  -x --no-same-owner
@@ -100,7 +106,7 @@ cb_part_install_tfcard()
 		fi
 	else
 		echo "cb_install_tfcard storage_medium dev_label [pack]"
-		echo "storage_medium: nand tsd tfx2"
+		echo "storage_medium: emmc"
 		echo "dev_label: sdb sdc sdd ..."
 		echo "pack: the parameter mean we will make a img for dd or win32writer"
 		return 1
@@ -110,6 +116,14 @@ cb_part_install_tfcard()
 
 cb_install_tfcard()
 {
+	if [ $2 = "sdx" ];then
+	   echo 	
+	   echo "please check which the card device you use,may be sdb or sdc,not sdx. "
+	   echo 
+	   return 1
+	
+	fi
+
 	local	STORAGE_MEDIUM=$1
 	local   sd_dev=$2
 
@@ -191,14 +205,11 @@ cb_install_tfcard()
 	#dd card.img for pack mode
 	if [ $pack_install =  "pack" ]; then
 		sizeByte=$(sudo du -sb ${CB_OUTPUT_DIR}/rootfs-part2.tar.gz | awk '{print $1}')
-		if [ "${STORAGE_MEDIUM}" = "tsd" ]; then
-			CONFIG_DIR=${CB_PRODUCT_DIR}/configs/tsd
+		if [ "${STORAGE_MEDIUM}" = "emmc" ]; then
+			CONFIG_DIR=${CB_PRODUCT_DIR}/configs/emmc
 			RootfsSizeKB=$(expr $sizeByte / 1000 + $CB_ROOTFS_SIZE \* 1024 +  50 \* 1024)
-		elif [ "${STORAGE_MEDIUM}" = "nand" ]; then
-			RootfsSizeKB=$(expr $sizeByte / 1000 + $CB_ROOTFS_SIZE \* 1024 +  100 \* 1024)
-			CONFIG_DIR=${CB_PRODUCT_DIR}/configs/nand
 		else
-			echo "first option only support tsd nand now"
+			echo "first option only support emmc now"
 			return 1
 		fi
 		PartExt4=$(expr $RootfsSizeKB + $RootfsSizeKB / 15)
@@ -232,10 +243,10 @@ cb_build_flash_card_image()
     (cd /tmp/tmp_${CB_PRODUCT_NAME}; sudo tar -cp *) |sudo tar -C ${CB_OUTPUT_DIR}/card0-rootfs -xp
 	echo $CB_SYSTEM_NAME |grep -q "fedora"
 	if [ $? -eq 0  ];then
-			sudo make -C ${CB_KSRC_DIR} O=${CB_KBUILD_DIR} ARCH=arm CROSS_COMPILE=${CB_CROSS_COMPILE} -j${CB_CPU_NUM} INSTALL_MOD_PATH=${CB_OUTPUT_DIR}/card0-rootfs/usr modules_install
+			sudo make -C ${CB_KSRC_DIR} O=${CB_KBUILD_DIR} ARCH=arm CROSS_COMPILE=${CB_CROSS_COMPILE} -j4 INSTALL_MOD_PATH=${CB_OUTPUT_DIR}/card0-rootfs/usr modules_install
 			echo "this is fedora"
 	else
-		sudo make -C ${CB_KSRC_DIR} O=${CB_KBUILD_DIR} ARCH=arm CROSS_COMPILE=${CB_CROSS_COMPILE} -j${CB_CPU_NUM} INSTALL_MOD_PATH=${CB_OUTPUT_DIR}/card0-rootfs modules_install
+		sudo make -C ${CB_KSRC_DIR} O=${CB_KBUILD_DIR} ARCH=arm CROSS_COMPILE=${CB_CROSS_COMPILE} -j4 INSTALL_MOD_PATH=${CB_OUTPUT_DIR}/card0-rootfs modules_install
 	fi
     (cd ${CB_PRODUCT_DIR}/overlay; tar -c *) |sudo tar -C ${CB_OUTPUT_DIR}/card0-rootfs  -x --no-same-owner
     (cd ${CB_OUTPUT_DIR}/card0-rootfs;  sudo tar -cp *) |gzip -9 > ${CB_OUTPUT_DIR}/rootfs.tar.gz
@@ -251,14 +262,11 @@ cb_part_install_flash_card()
 	local sd_dev=$2
 
 	sizeByte=$(sudo du -sb ${CB_OUTPUT_DIR}/rootfs.tar.gz | awk '{print $1}')
-	if [ "${STORAGE_MEDIUM}" = "tsd" ]; then
-		CONFIG_DIR=${CB_PRODUCT_DIR}/configs/tsd
+	if [ "${STORAGE_MEDIUM}" = "emmc" ]; then
+		CONFIG_DIR=${CB_PRODUCT_DIR}/configs/emmc
 		RootfsSizeKB=$(expr $sizeByte / 1000 + $CB_FLASH_TSD_ROOTFS_SIZE \* 1024 +  50 \* 1024)
-	elif [ "${STORAGE_MEDIUM}" = "nand" ]; then
-		RootfsSizeKB=$(expr $sizeByte / 1000 + $CB_FLASH_TSD_ROOTFS_SIZE \* 1024 +  100 \* 1024)
-		CONFIG_DIR=${CB_PRODUCT_DIR}/configs/nand
 	else
-		echo "first option only support tsd nand now"
+		echo "first option only support emmc now"
 		return 1
 	fi
 	PartExt4=$(expr $RootfsSizeKB + $RootfsSizeKB / 15)
@@ -277,6 +285,13 @@ cb_part_install_flash_card()
 
 cb_install_flash_card()
 {
+	if [ $2 = "sdx" ];then
+		echo         
+	        echo "please check which the card device you use,may be sdb or sdc,not sdx. "
+	        echo 
+	        return 1
+
+        fi
 
 	local STORAGE_MEDIUM=$1
 	local sd_dev=$2
@@ -289,10 +304,8 @@ cb_install_flash_card()
 			return 1
 		fi
 	fi
-	if [ "${STORAGE_MEDIUM}" = "tsd" ]; then
-		CONFIG_DIR=${CB_PRODUCT_DIR}/configs/tsd
-	else
-		CONFIG_DIR=${CB_PRODUCT_DIR}/configs/nand
+	if [ "${STORAGE_MEDIUM}" = "emmc" ]; then
+		CONFIG_DIR=${CB_PRODUCT_DIR}/configs/emmc
 	fi
 
     mkdir /tmp/sdc1
@@ -321,7 +334,7 @@ cb_install_flash_card()
     sudo cp -v  ${CB_OUTPUT_DIR}/rootfs.tar.gz /tmp/sdc2
     #part1
     sudo mkdir -pv /tmp/sdc2/bootfs
-	if [ "${STORAGE_MEDIUM}" = "tsd" ]; then
+	if [ "${STORAGE_MEDIUM}" = "emmc" ]; then
 		sudo cp -v ${U_BOOT_WITH_SPL_MMC2} /tmp/sdc2/bootfs/u-boot.bin
 	fi
     sudo cp -v ${CB_KBUILD_DIR}/arch/arm/boot/uImage /tmp/sdc2/bootfs
@@ -347,14 +360,14 @@ cb_install_flash_card()
 
 	if [ $pack_install =  "pack" ]; then
 		sizeByte=$(sudo du -sb ${CB_OUTPUT_DIR}/rootfs.tar.gz | awk '{print $1}')
-		if [ "${STORAGE_MEDIUM}" = "tsd" ]; then
-			CONFIG_DIR=${CB_PRODUCT_DIR}/configs/tsd
+		if [ "${STORAGE_MEDIUM}" = "emmc" ]; then
+			CONFIG_DIR=${CB_PRODUCT_DIR}/configs/emmc
 			RootfsSizeKB=$(expr $sizeByte / 1000 + $CB_FLASH_TSD_ROOTFS_SIZE \* 1024 +  50 \* 1024)
 		elif [ "${STORAGE_MEDIUM}" = "nand" ]; then
 			RootfsSizeKB=$(expr $sizeByte / 1000 + $CB_FLASH_TSD_ROOTFS_SIZE \* 1024 +  100 \* 1024)
 			CONFIG_DIR=${CB_PRODUCT_DIR}/configs/nand
 		else
-			echo "first option only support tsd nand now"
+			echo "first option only support emmc now"
 			return 1
 		fi
 		PartExt4=$(expr $RootfsSizeKB + $RootfsSizeKB / 15)
