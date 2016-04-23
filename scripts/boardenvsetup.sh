@@ -100,7 +100,7 @@ cb_part_install_tfcard()
 		fi
 	else
 		echo "cb_install_tfcard storage_medium dev_label [pack]"
-		echo "storage_medium: nand tsd tfx2"
+		echo "storage_medium: nand tsd emmc tfx2"
 		echo "dev_label: sdb sdc sdd ..."
 		echo "pack: the parameter mean we will make a img for dd or win32writer"
 		return 1
@@ -194,11 +194,14 @@ cb_install_tfcard()
 		if [ "${STORAGE_MEDIUM}" = "tsd" ]; then
 			CONFIG_DIR=${CB_PRODUCT_DIR}/configs/tsd
 			RootfsSizeKB=$(expr $sizeByte / 1000 + $CB_ROOTFS_SIZE \* 1024 +  50 \* 1024)
+		elif [ "${STORAGE_MEDIUM}" = "emmc" ]; then
+			CONFIG_DIR=${CB_PRODUCT_DIR}/configs/emmc
+			RootfsSizeKB=$(expr $sizeByte / 1000 + $CB_ROOTFS_SIZE \* 1024 +  50 \* 1024)
 		elif [ "${STORAGE_MEDIUM}" = "nand" ]; then
 			RootfsSizeKB=$(expr $sizeByte / 1000 + $CB_ROOTFS_SIZE \* 1024 +  100 \* 1024)
 			CONFIG_DIR=${CB_PRODUCT_DIR}/configs/nand
 		else
-			echo "first option only support tsd nand now"
+			echo "first option only support tsd emmc nand now"
 			return 1
 		fi
 		PartExt4=$(expr $RootfsSizeKB + $RootfsSizeKB / 15)
@@ -254,11 +257,14 @@ cb_part_install_flash_card()
 	if [ "${STORAGE_MEDIUM}" = "tsd" ]; then
 		CONFIG_DIR=${CB_PRODUCT_DIR}/configs/tsd
 		RootfsSizeKB=$(expr $sizeByte / 1000 + $CB_FLASH_TSD_ROOTFS_SIZE \* 1024 +  50 \* 1024)
+	elif [ "${STORAGE_MEDIUM}" = "emmc" ]; then
+		CONFIG_DIR=${CB_PRODUCT_DIR}/configs/emmc
+		RootfsSizeKB=$(expr $sizeByte / 1000 + $CB_FLASH_TSD_ROOTFS_SIZE \* 1024 +  50 \* 1024)
 	elif [ "${STORAGE_MEDIUM}" = "nand" ]; then
 		RootfsSizeKB=$(expr $sizeByte / 1000 + $CB_FLASH_TSD_ROOTFS_SIZE \* 1024 +  100 \* 1024)
 		CONFIG_DIR=${CB_PRODUCT_DIR}/configs/nand
 	else
-		echo "first option only support tsd nand now"
+		echo "first option only support tsd emmc nand now"
 		return 1
 	fi
 	PartExt4=$(expr $RootfsSizeKB + $RootfsSizeKB / 15)
@@ -291,6 +297,8 @@ cb_install_flash_card()
 	fi
 	if [ "${STORAGE_MEDIUM}" = "tsd" ]; then
 		CONFIG_DIR=${CB_PRODUCT_DIR}/configs/tsd
+	elif [ "${STORAGE_MEDIUM}" = "emmc" ]; then
+		CONFIG_DIR=${CB_PRODUCT_DIR}/configs/emmc
 	else
 		CONFIG_DIR=${CB_PRODUCT_DIR}/configs/nand
 	fi
@@ -321,7 +329,7 @@ cb_install_flash_card()
     sudo cp -v  ${CB_OUTPUT_DIR}/rootfs.tar.gz /tmp/sdc2
     #part1
     sudo mkdir -pv /tmp/sdc2/bootfs
-	if [ "${STORAGE_MEDIUM}" = "tsd" ]; then
+	if [ "${STORAGE_MEDIUM}" = "tsd" | "${STORAGE_MEDIUM}" = "emmc" ]; then
 		sudo cp -v ${U_BOOT_WITH_SPL_MMC2} /tmp/sdc2/bootfs/u-boot.bin
 	fi
     sudo cp -v ${CB_KBUILD_DIR}/arch/arm/boot/uImage /tmp/sdc2/bootfs
@@ -350,11 +358,14 @@ cb_install_flash_card()
 		if [ "${STORAGE_MEDIUM}" = "tsd" ]; then
 			CONFIG_DIR=${CB_PRODUCT_DIR}/configs/tsd
 			RootfsSizeKB=$(expr $sizeByte / 1000 + $CB_FLASH_TSD_ROOTFS_SIZE \* 1024 +  50 \* 1024)
+		elif [ "${STORAGE_MEDIUM}" = "emmc" ]; then
+			CONFIG_DIR=${CB_PRODUCT_DIR}/configs/emmc
+			RootfsSizeKB=$(expr $sizeByte / 1000 + $CB_FLASH_TSD_ROOTFS_SIZE \* 1024 +  50 \* 1024)
 		elif [ "${STORAGE_MEDIUM}" = "nand" ]; then
 			RootfsSizeKB=$(expr $sizeByte / 1000 + $CB_FLASH_TSD_ROOTFS_SIZE \* 1024 +  100 \* 1024)
 			CONFIG_DIR=${CB_PRODUCT_DIR}/configs/nand
 		else
-			echo "first option only support tsd nand now"
+			echo "first option only support tsd emmc nand now"
 			return 1
 		fi
 		PartExt4=$(expr $RootfsSizeKB + $RootfsSizeKB / 15)
