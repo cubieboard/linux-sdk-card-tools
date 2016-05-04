@@ -329,7 +329,7 @@ cb_install_flash_card()
     sudo cp -v  ${CB_OUTPUT_DIR}/rootfs.tar.gz /tmp/sdc2
     #part1
     sudo mkdir -pv /tmp/sdc2/bootfs
-	if [ "${STORAGE_MEDIUM}" = "tsd" | "${STORAGE_MEDIUM}" = "emmc" ]; then
+	if [ "${STORAGE_MEDIUM}" = "tsd" -o "${STORAGE_MEDIUM}" = "emmc" ]; then
 		sudo cp -v ${U_BOOT_WITH_SPL_MMC2} /tmp/sdc2/bootfs/u-boot.bin
 	fi
     sudo cp -v ${CB_KBUILD_DIR}/arch/arm/boot/uImage /tmp/sdc2/bootfs
