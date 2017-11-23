@@ -68,10 +68,10 @@ cb_build_card_image()
 	echo $CB_SYSTEM_NAME |grep -q "fedora"
 	if [ $? -eq 0  ];then
 
-			sudo make -C ${CB_KSRC_DIR} O=${CB_KBUILD_DIR} ARCH=arm CROSS_COMPILE=${CB_CROSS_COMPILE} -j${CB_CPU_NUM} INSTALL_MOD_PATH=${CB_OUTPUT_DIR}/card0-part2/usr modules_install
-			echo "this is fedora"
+		make -C ${CB_KSRC_DIR} O=${CB_KBUILD_DIR} ARCH=arm CROSS_COMPILE=${CB_CROSS_COMPILE} -j${CB_CPU_NUM} INSTALL_MOD_PATH=${CB_OUTPUT_DIR}/card0-part2/usr modules_install
+		echo "this is fedora"
 	else
-		sudo make -C ${CB_KSRC_DIR} O=${CB_KBUILD_DIR} ARCH=arm CROSS_COMPILE=${CB_CROSS_COMPILE} -j${CB_CPU_NUM} INSTALL_MOD_PATH=${CB_OUTPUT_DIR}/card0-part2 modules_install
+		make -C ${CB_KSRC_DIR} O=${CB_KBUILD_DIR} ARCH=arm CROSS_COMPILE=${CB_CROSS_COMPILE} -j${CB_CPU_NUM} INSTALL_MOD_PATH=${CB_OUTPUT_DIR}/card0-part2 modules_install
 	fi
 
     (cd ${CB_PRODUCT_DIR}/overlay; tar -c *) |sudo tar -C ${CB_OUTPUT_DIR}/card0-part2  -x --no-same-owner
